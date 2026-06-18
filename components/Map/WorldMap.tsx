@@ -34,7 +34,7 @@ const WorldMap: React.FC = () => {
   }, [fetchNotes, subscribeToRealtime]);
 
   return (
-    <div className="relative w-full h-full bg-[#f5f2eb] overflow-hidden">
+    <div className="relative w-full h-full bg-[#cbd2d7] overflow-hidden">
       {/* Loading overlay */}
       {isLoading && notes.length === 0 && (
         <div className="absolute inset-0 bg-[#f5f2eb]/85 z-[1000] flex flex-col items-center justify-center gap-3 backdrop-blur-sm">

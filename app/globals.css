@@ -11,6 +11,10 @@ body {
   overflow-x: hidden;
 }
 
+.leaflet-container {
+  background: #cbd2d7 !important;
+}
+
 /* Make leaflet popups match light glassmorphic warm paper theme */
 .leaflet-popup-content-wrapper {
   background: rgba(253, 251, 247, 0.9) !important; /* warm white/90 */
