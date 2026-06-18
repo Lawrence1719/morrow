@@ -45,12 +45,12 @@ const WorldMap: React.FC = () => {
       <MapContainer
         center={[20, 0]}
         zoom={2}
-        minZoom={2}
+        minZoom={1}
         maxZoom={10}
         style={mapContainerStyle}
         zoomControl={false}
         worldCopyJump={true}
-        maxBounds={[[-85, -180], [85, 180]]}
+        maxBounds={[[-85, -300], [85, 300]]}
         maxBoundsViscosity={1.0}
       >
         <TileLayer
