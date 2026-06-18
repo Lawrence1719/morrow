@@ -134,12 +134,16 @@ export async function POST(req: NextRequest) {
     const location = await getGeolocation(ip);
     const randomName = generateRandomName();
 
+    // Add small random jitter (±0.01 degrees, approx ±1km) to prevent overlapping pins in the same city
+    const latJitter = (Math.random() - 0.5) * 0.02;
+    const lngJitter = (Math.random() - 0.5) * 0.02;
+
     const notePayload = {
       random_name: randomName,
       message: message.trim(),
       mood: mood.toLowerCase(),
-      latitude: location.latitude,
-      longitude: location.longitude,
+      latitude: location.latitude + latJitter,
+      longitude: location.longitude + lngJitter,
       country: location.country,
     };
 

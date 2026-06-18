@@ -28,3 +28,7 @@ CREATE POLICY "Allow public insert" ON public.notes
 -- Index on coordinates and visibility for fast leaflet bounding box queries
 CREATE INDEX IF NOT EXISTS notes_lat_lng_idx ON public.notes(latitude, longitude) WHERE is_hidden = FALSE;
 CREATE INDEX IF NOT EXISTS notes_created_at_idx ON public.notes(created_at DESC);
+
+-- Enable Realtime replication for notes table (required for frontend subscription)
+ALTER PUBLICATION supabase_realtime ADD TABLE public.notes;
+
