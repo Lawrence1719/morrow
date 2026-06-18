@@ -60,8 +60,12 @@ const WorldMap: React.FC = () => {
           attribution={TILE_ATTRIBUTION}
         />
         
-        {/* Render Note Pins */}
-        {notes.map((note) => (
+        {/* Render Note Pins across repeated copies of the world (left, center, right) */}
+        {notes.flatMap((note) => [
+          { ...note, longitude: note.longitude - 360, id: `${note.id}-left` },
+          { ...note, id: `${note.id}-center` },
+          { ...note, longitude: note.longitude + 360, id: `${note.id}-right` }
+        ]).map((note) => (
           <NotePin key={note.id} note={note} />
         ))}
       </MapContainer>
