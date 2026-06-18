@@ -21,13 +21,15 @@ export const supabase = createClient(
 );
 
 // Client with service role for admin/server-side operations that bypass RLS
-export const supabaseServiceRole = createClient(
-  supabaseUrl || 'https://placeholder-project.supabase.co',
-  supabaseServiceKey || 'placeholder-service-key',
-  {
-    auth: {
-      persistSession: false,
-      autoRefreshToken: false,
-    },
-  }
-);
+export const supabaseServiceRole = typeof window === 'undefined'
+  ? createClient(
+      supabaseUrl || 'https://placeholder-project.supabase.co',
+      supabaseServiceKey || 'placeholder-service-key',
+      {
+        auth: {
+          persistSession: false,
+          autoRefreshToken: false,
+        },
+      }
+    )
+  : (null as any);
