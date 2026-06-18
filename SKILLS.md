@@ -87,7 +87,7 @@ flowchart TD
 ## Phase 3 — Project Structure
 
 ```
-morrow/
+world-notes/
 ├── app/
 │   ├── page.tsx                  # Landing page with map
 │   ├── admin/

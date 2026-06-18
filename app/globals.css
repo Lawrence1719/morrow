@@ -1,26 +1,82 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
-
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+  --background: #f5f2eb; /* Aged paper / cream background */
+  --foreground: #4a3e2e; /* Muted dark sepia / charcoal */
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  overflow-x: hidden;
+}
+
+/* Make leaflet popups match light glassmorphic warm paper theme */
+.leaflet-popup-content-wrapper {
+  background: rgba(253, 251, 247, 0.9) !important; /* warm white/90 */
+  border: 1px solid rgba(201, 169, 110, 0.25) !important; /* aged gold outline */
+  backdrop-filter: blur(8px);
+  border-radius: 16px !important;
+  box-shadow: 0 15px 30px -10px rgba(74, 62, 46, 0.25), 0 4px 6px -4px rgba(74, 62, 46, 0.15) !important;
+  padding: 4px !important;
+}
+
+.leaflet-popup-content {
+  margin: 12px 16px !important;
+  line-height: inherit !important;
+}
+
+.leaflet-popup-tip {
+  background: rgba(253, 251, 247, 0.9) !important;
+  border-left: 1px solid rgba(201, 169, 110, 0.25) !important;
+  border-bottom: 1px solid rgba(201, 169, 110, 0.25) !important;
+  box-shadow: none !important;
+}
+
+.leaflet-popup-close-button {
+  color: #a3907a !important;
+  font-size: 16px !important;
+  top: 6px !important;
+  right: 6px !important;
+}
+
+.leaflet-popup-close-button:hover {
+  color: #4a3e2e !important;
+  background: rgba(74, 62, 46, 0.05) !important;
+  border-radius: 9999px;
+}
+
+/* Animations */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: scale(0.97);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.animate-fade-in {
+  animation: fadeIn 0.2s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+/* Scrollbars */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: #f5f2eb;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #e3d3b4;
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #c9a96e;
 }
