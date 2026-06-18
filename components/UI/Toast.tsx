@@ -1,3 +1,5 @@
+"use client";
+
 import React from 'react';
 import { useToastStore, ToastMessage } from '@/stores/toastStore';
 import { MOOD_STYLES } from '@/lib/moods';

@@ -1,3 +1,5 @@
+"use client";
+
 import React, { useEffect } from 'react';
 import { MapContainer, TileLayer } from 'react-leaflet';
 import { useNotesStore } from '@/stores/notesStore';

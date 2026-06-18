@@ -1,3 +1,5 @@
+"use client";
+
 import React, { useState } from 'react';
 import { Note } from '@/stores/notesStore';
 import { MOOD_STYLES } from '@/lib/moods';
