@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useNotesStore } from '@/stores/notesStore';
+import { useToastStore } from '@/stores/toastStore';
 import { MOOD_STYLES } from '@/lib/moods';
 import { X, Send } from 'lucide-react';
 
@@ -9,6 +10,7 @@ interface NoteFormProps {
 
 const NoteForm: React.FC<NoteFormProps> = ({ onClose }) => {
   const { addNote, isSubmitting, error: storeError } = useNotesStore();
+  const { showToast } = useToastStore();
   
   const [message, setMessage] = useState('');
   const [selectedMood, setSelectedMood] = useState<string>('happy');
@@ -36,11 +38,21 @@ const NoteForm: React.FC<NoteFormProps> = ({ onClose }) => {
 
     const res = await addNote(message, selectedMood);
     if (res.success) {
+      showToast({
+        type: 'success',
+        title: 'Success',
+        message: 'Your mood note has been successfully dropped!'
+      });
       setSuccess(true);
       setTimeout(() => {
         onClose();
       }, 2000);
     } else {
+      showToast({
+        type: 'error',
+        title: 'Submission Failed',
+        message: res.error || 'Something went wrong while dropping your note.'
+      });
       setLocalError(res.error || 'Something went wrong.');
     }
   };

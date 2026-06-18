@@ -87,7 +87,7 @@ flowchart TD
 ## Phase 3 — Project Structure
 
 ```
-world-notes/
+morrow/
 ├── app/
 │   ├── page.tsx                  # Landing page with map
 │   ├── admin/
@@ -232,7 +232,7 @@ jobs:
 
 ### Supabase
 
-- Two projects: `world-notes-dev` and `world-notes-prod`
+- Two projects: `morrow-dev` and `morrow-prod`
 - Enable Row Level Security on `notes` table from day one
 - Migrations via Supabase CLI, committed under `supabase/migrations/`
 - Free tier has no automated backups — acceptable at MVP, revisit on launch

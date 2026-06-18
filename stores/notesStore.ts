@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { supabase } from '@/lib/supabase';
+import { useToastStore } from './toastStore';
 
 export interface Note {
   id: string;
@@ -93,6 +94,15 @@ export const useNotesStore = create<NotesState>((set, get) => ({
           if (eventType === 'INSERT') {
             const note = newRecord as Note;
             if (!note.is_hidden) {
+              const alreadyExists = get().notes.some((n) => n.id === note.id);
+              if (!alreadyExists) {
+                useToastStore.getState().showToast({
+                  type: 'mood',
+                  mood: note.mood,
+                  country: note.country,
+                  message: `"${note.message.length > 80 ? note.message.substring(0, 77) + '...' : note.message}"`
+                });
+              }
               set((state) => {
                 if (state.notes.some((n) => n.id === note.id)) return state;
                 return { notes: [note, ...state.notes] };
