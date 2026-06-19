@@ -833,7 +833,7 @@ const WorldMap: React.FC<WorldMapProps> = ({ onNoteSelectChange, isNight = false
       )}
 
       {/* Zoom Controls Overlay */}
-      <div className={`absolute bottom-24 left-6 md:bottom-10 md:left-10 z-[1000] flex flex-col gap-2 rounded-2xl border p-1.5 backdrop-blur-xl shadow-2xl theme-transition select-none ${
+      <div className={`absolute bottom-24 left-6 md:bottom-10 md:left-10 z-[1000] hidden md:flex flex-col gap-2 rounded-2xl border p-1.5 backdrop-blur-xl shadow-2xl theme-transition select-none ${
         isNight
           ? 'border-white/10 bg-[#16222f]/35 text-[#eae6db]'
           : 'border-[#eae6db] bg-white/20 text-[#4a3e2e]'

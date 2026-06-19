@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import dynamic from 'next/dynamic';
 import { useRouter } from 'next/navigation';
-import { Sparkles } from 'lucide-react';
+import { Sparkles, MessageSquare } from 'lucide-react';
 
 const checkIsNightPHT = (): boolean => {
   const now = new Date();
@@ -48,11 +48,14 @@ const WorldMap = dynamic(() => import('@/components/Map/WorldMap'), {
   loading: () => <MapLoadingPlaceholder />,
 });
 
+import ChatPanel from '@/components/UI/ChatPanel';
+
 import NoteForm from '@/components/Map/NoteForm';
 
 export default function Home() {
   const router = useRouter();
   const [isFormOpen, setIsFormOpen] = useState(false);
+  const [isChatOpen, setIsChatOpen] = useState(false);
   const [isNoteActive, setIsNoteActive] = useState(false);
   const [mounted, setMounted] = useState(false);
   
@@ -285,11 +288,26 @@ export default function Home() {
         </p>
       </header>
 
-      {/* 3. Drop Note Floating Action Button (aged gold - full width on mobile) */}
-      <div className={`absolute bottom-6 left-6 right-6 md:left-auto md:right-10 md:bottom-10 z-[1000] pointer-events-auto transition-all duration-300 ${isNoteActive ? 'opacity-0 scale-95 pointer-events-none md:opacity-100 md:scale-100 md:pointer-events-auto' : ''}`}>
+      {/* 3. Floating Action Buttons (Live Chat & Drop Note) */}
+      <div className={`absolute bottom-6 left-6 right-6 md:left-auto md:right-10 md:bottom-10 z-[1000] pointer-events-auto transition-all duration-300 flex items-center gap-3 ${isNoteActive ? 'opacity-0 scale-95 pointer-events-none md:opacity-100 md:scale-100 md:pointer-events-auto' : ''}`}>
+        {/* Live Chat Button */}
+        <button
+          onClick={() => setIsChatOpen(true)}
+          className={`group relative flex items-center justify-center gap-2 overflow-hidden rounded-full border p-4 md:px-6 md:py-4 font-semibold shadow-lg transition-all duration-300 hover:scale-[1.04] active:scale-[0.98] font-mono text-xs uppercase tracking-wider theme-transition ${
+            isNight
+              ? 'border-white/15 bg-[#16222f]/60 text-[#eae6db] hover:bg-[#16222f]/80 hover:shadow-black/40'
+              : 'border-black/10 bg-white/60 text-[#4a3e2e] hover:bg-white/80 hover:shadow-black/5'
+          }`}
+          title="Live Chat"
+        >
+          <MessageSquare className="h-4 w-4 text-[#c9a96e]" />
+          <span className="hidden md:inline">Live Chat</span>
+        </button>
+
+        {/* Drop a Note Button */}
         <button
           onClick={() => setIsFormOpen(true)}
-          className="w-full md:w-auto group relative flex items-center justify-center gap-2 overflow-hidden rounded-full bg-[#c9a96e] px-6 py-4 font-semibold text-[#fbf9f4] shadow-[0_4px_20px_rgba(201,169,110,0.3)] transition-all duration-300 hover:scale-[1.04] hover:bg-[#b8985c] hover:shadow-[0_4px_30px_rgba(201,169,110,0.5)] active:scale-[0.98] font-mono text-xs uppercase tracking-wider"
+          className="flex-1 md:flex-initial group relative flex items-center justify-center gap-2 overflow-hidden rounded-full bg-[#c9a96e] px-6 py-4 font-semibold text-[#fbf9f4] shadow-[0_4px_20px_rgba(201,169,110,0.3)] transition-all duration-300 hover:scale-[1.04] hover:bg-[#b8985c] hover:shadow-[0_4px_30px_rgba(201,169,110,0.5)] active:scale-[0.98] font-mono text-xs uppercase tracking-wider"
         >
           <Sparkles className="h-4 w-4 text-[#fbf9f4] animate-pulse" />
           <span>Drop a Note</span>
@@ -299,6 +317,11 @@ export default function Home() {
       {/* 5. Submitting Form Modal Overlay */}
       {isFormOpen && (
         <NoteForm onClose={() => setIsFormOpen(false)} isNight={isNight} />
+      )}
+
+      {/* 6. Live Chat Sidebar Panel */}
+      {mounted && (
+        <ChatPanel isOpen={isChatOpen} onClose={() => setIsChatOpen(false)} isNight={isNight} />
       )}
       
     </main>
