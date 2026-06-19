@@ -47,18 +47,31 @@ export const useNotesStore = create<NotesState>((set, get) => ({
   addNote: async (message: string, mood: string) => {
     set({ isSubmitting: true, error: null });
     try {
+      const deviceId = typeof window !== 'undefined'
+        ? (localStorage.getItem('morrow_device_id') || (() => {
+            const newId = crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
+            localStorage.setItem('morrow_device_id', newId);
+            return newId;
+          })())
+        : '';
+
       const res = await fetch('/api/notes', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ message, mood }),
+        body: JSON.stringify({ message, mood, deviceId }),
       });
 
       const data = await res.json();
 
       if (!res.ok) {
         throw new Error(data.error || 'Failed to submit note');
+      }
+
+      // Clean up the name of the new note locally
+      if (data && data.random_name) {
+        data.random_name = data.random_name.split('#')[0];
       }
 
       // Optimistic UI update: immediately push the note to local state
@@ -93,6 +106,9 @@ export const useNotesStore = create<NotesState>((set, get) => ({
 
           if (eventType === 'INSERT') {
             const note = newRecord as Note;
+            if (note.random_name) {
+              note.random_name = note.random_name.split('#')[0];
+            }
             if (!note.is_hidden) {
               const alreadyExists = get().notes.some((n) => n.id === note.id);
               if (!alreadyExists) {
@@ -110,6 +126,9 @@ export const useNotesStore = create<NotesState>((set, get) => ({
             }
           } else if (eventType === 'UPDATE') {
             const note = newRecord as Note;
+            if (note.random_name) {
+              note.random_name = note.random_name.split('#')[0];
+            }
             set((state) => {
               if (note.is_hidden) {
                 return { notes: state.notes.filter((n) => n.id !== note.id) };

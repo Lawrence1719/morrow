@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState, useCallback } from 'react';
 import { geoOrthographic, geoPath, geoGraticule, geoDistance } from 'd3-geo';
 import { useNotesStore, Note } from '@/stores/notesStore';
 import { MOOD_STYLES } from '@/lib/moods';
@@ -24,9 +24,10 @@ const PLACE_LABELS = [
 
 interface WorldMapProps {
   onNoteSelectChange?: (selected: boolean) => void;
+  isNight?: boolean;
 }
 
-const WorldMap: React.FC<WorldMapProps> = ({ onNoteSelectChange }) => {
+const WorldMap: React.FC<WorldMapProps> = ({ onNoteSelectChange, isNight = false }) => {
   const { notes, fetchNotes, subscribeToRealtime, isLoading } = useNotesStore();
   
   const containerRef = useRef<HTMLDivElement>(null);
@@ -36,11 +37,76 @@ const WorldMap: React.FC<WorldMapProps> = ({ onNoteSelectChange }) => {
   
   const [rotation, setRotation] = useState<[number, number, number]>([0, -15, 0]);
   const [selectedNote, setSelectedNote] = useState<Note | null>(null);
+  
+  // Cluster properties state
+  const [activeClusterNotes, setActiveClusterNotes] = useState<Note[]>([]);
+  const [activeClusterIndex, setActiveClusterIndex] = useState<number>(0);
+
+  // Track dynamic card height for connector line centering
+  const [cardHeight, setCardHeight] = useState<number>(212); // Default matches vertical center of 130px
+  const resizeObserverRef = useRef<ResizeObserver | null>(null);
+
+  // Close card or update indices if notes are deleted/changed in realtime
+  useEffect(() => {
+    if (selectedNote) {
+      const stillExists = notes.some((n) => n.id === selectedNote.id);
+      if (!stillExists) {
+        setSelectedNote(null);
+        setActiveClusterNotes([]);
+        setActiveClusterIndex(0);
+        focusTarget.current = null;
+      } else if (activeClusterNotes.length > 0) {
+        const updatedCluster = activeClusterNotes.filter((cn) => notes.some((n) => n.id === cn.id));
+        if (updatedCluster.length !== activeClusterNotes.length) {
+          if (updatedCluster.length === 0) {
+            setSelectedNote(null);
+            setActiveClusterNotes([]);
+            setActiveClusterIndex(0);
+            focusTarget.current = null;
+          } else {
+            setActiveClusterNotes(updatedCluster);
+            const newIndex = Math.min(activeClusterIndex, updatedCluster.length - 1);
+            setActiveClusterIndex(newIndex);
+            setSelectedNote(updatedCluster[newIndex]);
+          }
+        }
+      }
+    }
+  }, [notes, selectedNote, activeClusterNotes, activeClusterIndex]);
+
+  const cardRef = useCallback((node: HTMLDivElement | null) => {
+    if (resizeObserverRef.current) {
+      resizeObserverRef.current.disconnect();
+      resizeObserverRef.current = null;
+    }
+
+    if (node) {
+      setCardHeight(node.offsetHeight);
+      const observer = new ResizeObserver((entries) => {
+        if (entries[0]) {
+          setCardHeight(node.offsetHeight);
+        }
+      });
+      observer.observe(node);
+      resizeObserverRef.current = observer;
+    } else {
+      setCardHeight(212);
+    }
+  }, []);
 
   // Sync selectedNote status changes back to parent component
   useEffect(() => {
     onNoteSelectChange?.(!!selectedNote);
   }, [selectedNote, onNoteSelectChange]);
+
+  // Clean up resize observer on unmount
+  useEffect(() => {
+    return () => {
+      if (resizeObserverRef.current) {
+        resizeObserverRef.current.disconnect();
+      }
+    };
+  }, []);
 
   // Refs for tracking interactive dragging and physics
   const isDragging = useRef(false);
@@ -278,9 +344,52 @@ const WorldMap: React.FC<WorldMapProps> = ({ onNoteSelectChange }) => {
     }
   };
 
-  const handleNoteClick = (note: Note) => {
-    setSelectedNote(note);
-    focusTarget.current = [note.longitude, note.latitude];
+  // Group notes into clusters based on distance to handle overlapping/jittered pins
+  const clusters: {
+    key: string;
+    representative: Note;
+    allNotes: Note[];
+    count: number;
+    latitude: number;
+    longitude: number;
+  }[] = [];
+  const distanceThreshold = 0.15; // degrees (~15km)
+
+  // Sort notes latest first
+  const sortedNotes = [...notes].sort(
+    (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+  );
+
+  sortedNotes.forEach((note) => {
+    const match = clusters.find((c) => {
+      const latDiff = Math.abs(c.latitude - note.latitude);
+      const lngDiff = Math.abs(c.longitude - note.longitude);
+      return latDiff < distanceThreshold && lngDiff < distanceThreshold;
+    });
+
+    if (match) {
+      match.allNotes.push(note);
+      match.count = match.allNotes.length;
+    } else {
+      clusters.push({
+        key: `${note.latitude.toFixed(4)}_${note.longitude.toFixed(4)}`,
+        representative: note,
+        allNotes: [note],
+        count: 1,
+        latitude: note.latitude,
+        longitude: note.longitude,
+      });
+    }
+  });
+
+  const clusterPins = clusters;
+
+  const handleClusterClick = (clusterNotes: Note[]) => {
+    setActiveClusterNotes(clusterNotes);
+    setActiveClusterIndex(0);
+    const firstNote = clusterNotes[0];
+    setSelectedNote(firstNote);
+    focusTarget.current = [firstNote.longitude, firstNote.latitude];
   };
 
   // Find selected note coordinates on the globe relative to container bounds
@@ -288,13 +397,18 @@ const WorldMap: React.FC<WorldMapProps> = ({ onNoteSelectChange }) => {
   let pinY: number | null = null;
 
   if (selectedNote) {
+    // Find the cluster that contains the selected note
+    const matchingCluster = clusterPins.find((cp) => cp.allNotes.some((n) => n.id === selectedNote.id));
+    const targetLng = matchingCluster?.longitude ?? selectedNote.longitude;
+    const targetLat = matchingCluster?.latitude ?? selectedNote.latitude;
+
     const distance = geoDistance(
-      [selectedNote.longitude, selectedNote.latitude],
+      [targetLng, targetLat],
       [-rotation[0], -rotation[1]]
     );
     const isVisible = distance < Math.PI / 2;
     if (isVisible) {
-      const projected = projection([selectedNote.longitude, selectedNote.latitude]);
+      const projected = projection([targetLng, targetLat]);
       if (projected) {
         const svgOffsetX = (containerSize.width - dimensions.width) / 2;
         const svgOffsetY = (containerSize.height - dimensions.height) / 2;
@@ -307,12 +421,16 @@ const WorldMap: React.FC<WorldMapProps> = ({ onNoteSelectChange }) => {
   const isMapLoading = isLoading || !geoJson;
 
   return (
-    <div className="relative w-full h-full bg-[#fbf9f4] overflow-hidden">
+    <div className="relative w-full h-full bg-transparent overflow-hidden">
       {/* Loading overlay */}
       {isMapLoading && (
-        <div className="absolute inset-0 bg-[#f5f2eb]/85 z-[100] flex flex-col items-center justify-center gap-3 backdrop-blur-sm">
-          <div className="w-10 h-10 border-4 border-[#c9a96e] border-t-transparent rounded-full animate-spin"></div>
-          <span className="text-sm font-semibold text-[#4a3e2e]/80 animate-pulse font-mono">mapping world mood...</span>
+        <div className={`absolute inset-0 z-[100] flex flex-col items-center justify-center gap-3 backdrop-blur-sm theme-transition ${
+          isNight ? 'bg-[#0b0f19]/85 text-[#eae6db]' : 'bg-[#f5f2eb]/85 text-[#4a3e2e]'
+        }`}>
+          <div className={`w-10 h-10 border-4 border-t-transparent rounded-full animate-spin theme-transition ${
+            isNight ? 'border-[#eae6db]' : 'border-[#c9a96e]'
+          }`}></div>
+          <span className="text-sm font-semibold animate-pulse font-mono">mapping world mood...</span>
         </div>
       )}
 
@@ -335,7 +453,9 @@ const WorldMap: React.FC<WorldMapProps> = ({ onNoteSelectChange }) => {
             {/* Sphere Background / Ocean */}
             <path
               d={spherePath}
-              fill="#f5f2eb"
+              fill={isNight ? '#0d131a' : '#f5f2eb'}
+              className="theme-transition"
+              style={{ transition: 'fill 1s ease-in-out' }}
             />
 
             {/* Graticule / Gridlines */}
@@ -344,7 +464,9 @@ const WorldMap: React.FC<WorldMapProps> = ({ onNoteSelectChange }) => {
               fill="none"
               stroke="#c9a96e"
               strokeWidth={0.5}
-              opacity={0.15}
+              opacity={isNight ? 0.08 : 0.15}
+              className="theme-transition"
+              style={{ transition: 'opacity 1s ease-in-out' }}
             />
 
             {/* Landmasses / Countries */}
@@ -355,10 +477,13 @@ const WorldMap: React.FC<WorldMapProps> = ({ onNoteSelectChange }) => {
                 <path
                   key={index}
                   d={path}
-                  fill="#eae6db"
-                  stroke="#f5f2eb"
+                  fill={isNight ? '#1e293b' : '#eae6db'}
+                  stroke={isNight ? '#0d131a' : '#f5f2eb'}
                   strokeWidth={0.5}
-                  className="hover:fill-[#e0d6c1] transition-colors duration-150"
+                  className={`theme-transition transition-colors duration-1000 ${
+                    isNight ? 'hover:fill-[#2d3a4f]' : 'hover:fill-[#e0d6c1]'
+                  }`}
+                  style={{ transition: 'fill 1s ease-in-out, stroke 1s ease-in-out' }}
                 />
               );
             })}
@@ -392,7 +517,9 @@ const WorldMap: React.FC<WorldMapProps> = ({ onNoteSelectChange }) => {
                   dominantBaseline="middle"
                   pointerEvents="none"
                   style={{
-                    fill: isOcean ? '#c3af91' : '#7d6c56',
+                    fill: isOcean 
+                      ? (isNight ? '#3b4b60' : '#c3af91') 
+                      : (isNight ? '#a1a1aa' : '#7d6c56'),
                     fontSize: isOcean ? '9px' : '10px',
                     fontFamily: isOcean ? 'Georgia, serif' : 'var(--font-mono), monospace',
                     fontStyle: isOcean ? 'italic' : 'normal',
@@ -401,7 +528,7 @@ const WorldMap: React.FC<WorldMapProps> = ({ onNoteSelectChange }) => {
                     textTransform: 'uppercase',
                     opacity: (isOcean ? 0.45 : 0.6) * edgeFade,
                     userSelect: 'none',
-                    transition: 'opacity 0.2s',
+                    transition: 'fill 1s ease-in-out, opacity 0.2s',
                   }}
                 >
                   {label.name}
@@ -410,29 +537,33 @@ const WorldMap: React.FC<WorldMapProps> = ({ onNoteSelectChange }) => {
             })}
 
             {/* Note Pins */}
-            {notes.map((note) => {
-              const projected = projection([note.longitude, note.latitude]);
+            {clusterPins.map((pin) => {
+              const projected = projection([pin.longitude, pin.latitude]);
               if (!projected) return null;
 
               // Check if marker is on the visible front-hemisphere
               const distance = geoDistance(
-                [note.longitude, note.latitude],
+                [pin.longitude, pin.latitude],
                 [-rotation[0], -rotation[1]]
               );
               const isVisible = distance < Math.PI / 2;
               if (!isVisible) return null;
 
               const [x, y] = projected;
-              const isSelected = selectedNote?.id === note.id;
+              // Check if this specific pin's coordinates are currently selected
+              const isSelected = selectedNote && pin.allNotes.some((n) => n.id === selectedNote.id);
+              
+              const note = pin.representative;
               const style = MOOD_STYLES[note.mood.toLowerCase()] || MOOD_STYLES.happy;
+              const isCluster = pin.count > 1;
 
               return (
                 <g
-                  key={note.id}
+                  key={pin.key}
                   transform={`translate(${x}, ${y})`}
                   onClick={(e) => {
                     e.stopPropagation();
-                    handleNoteClick(note);
+                    handleClusterClick(pin.allNotes);
                   }}
                   onPointerDown={(e) => {
                     e.stopPropagation();
@@ -452,30 +583,77 @@ const WorldMap: React.FC<WorldMapProps> = ({ onNoteSelectChange }) => {
                   }}
                   className="group cursor-pointer"
                 >
-                  {/* Ping Animation Ring */}
-                  <circle
-                    r={isSelected ? 14 : 9}
-                    fill={style.color}
-                    opacity={isSelected ? 0.4 : 0.25}
-                    className={isSelected ? "animate-pulse" : "group-hover:scale-125 transition-transform duration-200"}
-                  />
-                  {/* Pulse Ping ring for active pin */}
-                  {isSelected && (
-                    <circle
-                      r={24}
-                      fill={style.color}
-                      opacity={0.15}
-                      className="animate-ping"
-                    />
+                  {isCluster ? (
+                    // CLUSTER PIN RENDER (Multiple Notes at one location)
+                    <>
+                      {/* Outer pulse ring */}
+                      <circle
+                        r={isSelected ? 18 : 14}
+                        fill="#c9a96e"
+                        opacity={isSelected ? 0.35 : 0.2}
+                        className={isSelected ? "animate-pulse" : "group-hover:scale-110 transition-transform duration-200"}
+                      />
+                      {isSelected && (
+                        <circle
+                          r={28}
+                          fill="#c9a96e"
+                          opacity={0.12}
+                          className="animate-ping"
+                        />
+                      )}
+                      {/* Core center circle */}
+                      <circle
+                        r={isSelected ? 10 : 8}
+                        fill="#c9a96e"
+                        stroke="#fbf9f4"
+                        strokeWidth={1.5}
+                        className="shadow-md"
+                      />
+                      {/* Count inside cluster */}
+                      <text
+                        textAnchor="middle"
+                        dominantBaseline="central"
+                        style={{
+                          fontSize: '8px',
+                          fontWeight: '800',
+                          fill: '#fbf9f4',
+                          fontFamily: 'var(--font-mono), monospace',
+                          pointerEvents: 'none',
+                          userSelect: 'none',
+                        }}
+                      >
+                        {pin.count}
+                      </text>
+                    </>
+                  ) : (
+                    // SINGLE PIN RENDER (Only one note at this location)
+                    <>
+                      {/* Ping Animation Ring */}
+                      <circle
+                        r={isSelected ? 14 : 9}
+                        fill={style.color}
+                        opacity={isSelected ? 0.4 : 0.25}
+                        className={isSelected ? "animate-pulse" : "group-hover:scale-125 transition-transform duration-200"}
+                      />
+                      {/* Pulse Ping ring for active pin */}
+                      {isSelected && (
+                        <circle
+                          r={24}
+                          fill={style.color}
+                          opacity={0.15}
+                          className="animate-ping"
+                        />
+                      )}
+                      {/* Core Center Dot */}
+                      <circle
+                        r={isSelected ? 5.5 : 3.5}
+                        fill={style.color}
+                        stroke="#fbf9f4"
+                        strokeWidth={1.5}
+                        className="shadow-md"
+                      />
+                    </>
                   )}
-                  {/* Core Center Dot */}
-                  <circle
-                    r={isSelected ? 5.5 : 3.5}
-                    fill={style.color}
-                    stroke="#fbf9f4"
-                    strokeWidth={1.5}
-                    className="shadow-md"
-                  />
                 </g>
               );
             })}
@@ -495,7 +673,7 @@ const WorldMap: React.FC<WorldMapProps> = ({ onNoteSelectChange }) => {
           `}</style>
           {/* Connector Bezier Line */}
           <path
-            d={`M ${pinX} ${pinY} C ${(pinX + (containerSize.width - 408)) / 2} ${pinY}, ${(pinX + (containerSize.width - 408)) / 2} 130, ${containerSize.width - 408} 130`}
+            d={`M ${pinX} ${pinY} C ${(pinX + (containerSize.width - 408)) / 2} ${pinY}, ${(pinX + (containerSize.width - 408)) / 2} ${24 + cardHeight / 2}, ${containerSize.width - 408} ${24 + cardHeight / 2}`}
             fill="none"
             stroke="#c9a96e"
             strokeWidth={1.5}
@@ -508,7 +686,7 @@ const WorldMap: React.FC<WorldMapProps> = ({ onNoteSelectChange }) => {
           {/* Start Point Dot */}
           <circle cx={pinX} cy={pinY} r={3} fill="#c9a96e" />
           {/* End Point Dot */}
-          <circle cx={containerSize.width - 408} cy={130} r={3} fill="#c9a96e" />
+          <circle cx={containerSize.width - 408} cy={24 + cardHeight / 2} r={3} fill="#c9a96e" />
         </svg>
       )}
 
@@ -516,8 +694,27 @@ const WorldMap: React.FC<WorldMapProps> = ({ onNoteSelectChange }) => {
       {selectedNote && (
         <GlobeDetailsCard 
           note={selectedNote} 
+          cardRef={cardRef}
+          totalNotes={activeClusterNotes.length}
+          activeIndex={activeClusterIndex}
+          onPrevNote={() => {
+            const nextIndex = activeClusterIndex - 1;
+            if (nextIndex >= 0) {
+              setActiveClusterIndex(nextIndex);
+              setSelectedNote(activeClusterNotes[nextIndex]);
+            }
+          }}
+          onNextNote={() => {
+            const nextIndex = activeClusterIndex + 1;
+            if (nextIndex < activeClusterNotes.length) {
+              setActiveClusterIndex(nextIndex);
+              setSelectedNote(activeClusterNotes[nextIndex]);
+            }
+          }}
           onClose={() => {
             setSelectedNote(null);
+            setActiveClusterNotes([]);
+            setActiveClusterIndex(0);
             focusTarget.current = null;
             isHoveringNoteCard.current = false;
           }} 
@@ -531,11 +728,16 @@ const WorldMap: React.FC<WorldMapProps> = ({ onNoteSelectChange }) => {
               isHoveringNoteCard.current = false;
             }
           }}
+          isNight={isNight}
         />
       )}
 
       {/* Decorative Vignette Overlay */}
-      <div className="absolute inset-0 pointer-events-none border-[12px] border-[#f5f2eb]/10 z-[99] shadow-[inset_0_0_120px_rgba(74,62,46,0.15)]" />
+      <div className={`absolute inset-0 pointer-events-none border-[12px] z-[99] theme-transition ${
+        isNight 
+          ? 'border-[#0b0f19]/25 shadow-[inset_0_0_120px_rgba(0,0,0,0.6)]' 
+          : 'border-[#f5f2eb]/10 shadow-[inset_0_0_120px_rgba(74,62,46,0.15)]'
+      }`} />
     </div>
   );
 };

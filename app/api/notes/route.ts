@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { supabase } from '@/lib/supabase';
+import { supabase, supabaseServiceRole } from '@/lib/supabase';
 import { getGeolocation } from '@/lib/geolocation';
 import { generateRandomName } from '@/lib/nameGenerator';
 import { getServerSession } from 'next-auth';
@@ -64,23 +64,39 @@ export async function GET(req: NextRequest) {
         .order('created_at', { ascending: false });
 
       if (error) throw error;
-      return NextResponse.json(data);
+
+      // Strip client-side device ID hash from note names
+      const cleanedData = data?.map((note) => ({
+        ...note,
+        random_name: note.random_name.split('#')[0],
+      })) || [];
+
+      return NextResponse.json(cleanedData);
     } catch (err: any) {
       console.error('Database fetch error:', err);
       return NextResponse.json({ error: err.message || 'Database error occurred' }, { status: 500 });
     }
   }
 
-  // Public request (fetch only active, non-hidden notes)
+  // Public request (fetch only active, non-hidden notes created in the last 24 hours)
   try {
+    const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
     const { data, error } = await supabase
       .from('notes')
       .select('*')
       .eq('is_hidden', false)
+      .gt('created_at', twentyFourHoursAgo)
       .order('created_at', { ascending: false });
 
     if (error) throw error;
-    return NextResponse.json(data);
+
+    // Strip client-side device ID hash from note names
+    const cleanedData = data?.map((note) => ({
+      ...note,
+      random_name: note.random_name.split('#')[0],
+    })) || [];
+
+    return NextResponse.json(cleanedData);
   } catch (err: any) {
     console.error('Database fetch error:', err);
     return NextResponse.json({ error: err.message || 'Database error occurred' }, { status: 500 });
@@ -115,7 +131,7 @@ export async function POST(req: NextRequest) {
   // 3. Parse and Validate Body
   try {
     const body = await req.json();
-    const { message, mood } = body;
+    const { message, mood, deviceId } = body;
 
     if (!message || typeof message !== 'string' || message.trim().length === 0) {
       return NextResponse.json({ error: 'Message is required' }, { status: 400 });
@@ -130,7 +146,23 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Invalid or missing mood classification' }, { status: 400 });
     }
 
-    // 4. Geolocation & Name Generator lookup
+    // 4. Delete previous notes from the same device (if deviceId is provided)
+    if (deviceId && typeof deviceId === 'string' && deviceId.trim().length > 0) {
+      const { data: oldNotes, error: fetchError } = await supabaseServiceRole
+        .from('notes')
+        .select('id')
+        .like('random_name', `%#${deviceId}`);
+
+      if (!fetchError && oldNotes && oldNotes.length > 0) {
+        const idsToHide = oldNotes.map((n: { id: string }) => n.id);
+        await supabaseServiceRole
+          .from('notes')
+          .delete()
+          .in('id', idsToHide);
+      }
+    }
+
+    // 5. Geolocation & Name Generator lookup
     const location = await getGeolocation(ip);
     const randomName = generateRandomName();
 
@@ -139,7 +171,7 @@ export async function POST(req: NextRequest) {
     const lngJitter = (Math.random() - 0.5) * 0.02;
 
     const notePayload = {
-      random_name: randomName,
+      random_name: deviceId ? `${randomName}#${deviceId}` : randomName,
       message: message.trim(),
       mood: mood.toLowerCase(),
       latitude: location.latitude + latJitter,
@@ -147,8 +179,8 @@ export async function POST(req: NextRequest) {
       country: location.country,
     };
 
-    // 5. Save to Database
-    const { data, error } = await supabase
+    // 6. Save to Database
+    const { data, error } = await supabaseServiceRole
       .from('notes')
       .insert([notePayload])
       .select()
@@ -156,6 +188,11 @@ export async function POST(req: NextRequest) {
 
     if (error) {
       throw error;
+    }
+
+    // Strip deviceId suffix before returning to client
+    if (data && data.random_name) {
+      data.random_name = data.random_name.split('#')[0];
     }
 
     return NextResponse.json(data, { status: 201 });

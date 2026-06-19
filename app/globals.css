@@ -111,3 +111,51 @@ body {
 ::-webkit-scrollbar-thumb:hover {
   background: #c9a96e;
 }
+
+/* Custom transitions for day/night theme switch */
+.theme-transition {
+  transition: background-color 1s ease-in-out, border-color 1s ease-in-out, text-color 1s ease-in-out, fill 1s ease-in-out, stroke 1s ease-in-out;
+}
+
+/* Drift animation for day clouds */
+@keyframes drift {
+  0%, 100% {
+    transform: translate(0, 0);
+  }
+  50% {
+    transform: translate(30px, -10px);
+  }
+}
+
+@keyframes drift-reverse {
+  0%, 100% {
+    transform: translate(0, 0);
+  }
+  50% {
+    transform: translate(-30px, 10px);
+  }
+}
+
+.animate-drift-slow {
+  animation: drift 25s ease-in-out infinite;
+}
+
+.animate-drift-medium {
+  animation: drift-reverse 18s ease-in-out infinite;
+}
+
+/* Twinkle animation for stars */
+@keyframes twinkle {
+  0%, 100% {
+    opacity: 0.15;
+    transform: scale(0.8);
+  }
+  50% {
+    opacity: 0.85;
+    transform: scale(1.2);
+  }
+}
+
+.animate-twinkle {
+  animation: twinkle var(--twinkle-duration, 4s) ease-in-out infinite;
+}

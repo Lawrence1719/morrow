@@ -23,6 +23,50 @@ export default function Home() {
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [isNoteActive, setIsNoteActive] = useState(false);
   
+  // Real-time day/night theme check based on PH time (Asia/Manila)
+  const [isNight, setIsNight] = useState(false);
+  interface Star {
+    id: number;
+    top: number;
+    left: number;
+    size: number;
+    duration: number;
+    delay: number;
+  }
+  const [stars, setStars] = useState<Star[]>([]);
+
+  useEffect(() => {
+    const checkTime = () => {
+      try {
+        const phOptions = { timeZone: 'Asia/Manila', hour: '2-digit', hour12: false } as const;
+        const formatter = new Intl.DateTimeFormat('en-US', phOptions);
+        const hour = parseInt(formatter.format(new Date()), 10);
+        setIsNight(hour >= 18 || hour < 6);
+      } catch (e) {
+        const localHour = new Date().getHours();
+        setIsNight(localHour >= 18 || localHour < 6);
+      }
+    };
+
+    checkTime();
+    const interval = setInterval(checkTime, 60000);
+
+    // Generate stars only on client side to avoid Next.js hydration mismatch
+    const generatedStars = Array.from({ length: 45 }).map((_, i) => ({
+      id: i,
+      top: Math.random() * 100,
+      left: Math.random() * 100,
+      size: Math.random() * 2 + 0.8, // 0.8px to 2.8px
+      duration: Math.random() * 4 + 3, // 3s to 7s
+      delay: Math.random() * 5, // 0s to 5s
+    }));
+    setStars(generatedStars);
+
+    return () => {
+      clearInterval(interval);
+    };
+  }, []);
+
   // Easter egg: Click logo 5 times rapidly to navigate to admin panel
   const [clickCount, setClickCount] = useState(0);
   const [lastClickTime, setLastClickTime] = useState(0);
@@ -54,26 +98,75 @@ export default function Home() {
   }, [router]);
 
   return (
-    <main className="relative w-screen h-screen overflow-hidden bg-[#f5f2eb] text-[#4a3e2e] font-sans select-none">
+    <main className={`relative w-screen h-screen overflow-hidden select-none theme-transition ${
+      isNight 
+        ? 'bg-[#0b0f19] text-[#eae6db]' 
+        : 'bg-[#f5f2eb] text-[#4a3e2e]'
+    }`}>
       
+      {/* Dynamic Background Layer for Day (warm sun, blurred clouds) */}
+      <div className={`absolute inset-0 transition-opacity duration-1000 z-0 ${isNight ? 'opacity-0' : 'opacity-100 bg-[#f5f2eb]'}`}>
+        {/* Soft Glowing Sun */}
+        <div className="absolute -top-32 -left-32 w-[55vw] h-[55vw] max-w-[550px] max-h-[550px] rounded-full bg-amber-200/20 blur-[110px] pointer-events-none select-none" />
+        
+        {/* Soft drifting clouds */}
+        <div className="absolute top-[12%] left-[15%] w-[320px] h-[110px] rounded-full bg-[#fbf9f4]/45 blur-[65px] animate-drift-slow pointer-events-none select-none" />
+        <div className="absolute top-[42%] right-[8%] w-[420px] h-[140px] rounded-full bg-[#fbf9f4]/35 blur-[75px] animate-drift-medium pointer-events-none select-none" />
+        <div className="absolute bottom-[8%] left-[28%] w-[260px] h-[90px] rounded-full bg-[#fbf9f4]/30 blur-[55px] animate-drift-slow pointer-events-none select-none" />
+      </div>
+
+      {/* Dynamic Background Layer for Night (moon glow, twinkling stars) */}
+      <div className={`absolute inset-0 transition-opacity duration-1000 z-0 ${isNight ? 'opacity-100 bg-gradient-to-b from-[#0b0f19] to-[#16222f]' : 'opacity-0'}`}>
+        {/* Soft Glowing Moon */}
+        <div className="absolute -top-32 -left-32 w-[50vw] h-[50vw] max-w-[500px] max-h-[500px] rounded-full bg-blue-100/10 blur-[100px] pointer-events-none select-none" />
+        
+        {/* Twinkling Stars grid */}
+        <div className="absolute inset-0 pointer-events-none overflow-hidden">
+          {stars.map((star) => (
+            <div
+              key={star.id}
+              className="absolute rounded-full bg-white/75 animate-twinkle"
+              style={{
+                top: `${star.top}%`,
+                left: `${star.left}%`,
+                width: `${star.size}px`,
+                height: `${star.size}px`,
+                '--twinkle-duration': `${star.duration}s`,
+                animationDelay: `${star.delay}s`,
+              } as React.CSSProperties}
+            />
+          ))}
+        </div>
+      </div>
+
       {/* 1. World Map background layer */}
-      <div className="absolute inset-0 w-full h-full z-0">
-        <WorldMap onNoteSelectChange={setIsNoteActive} />
+      <div className="absolute inset-0 w-full h-full z-10">
+        <WorldMap onNoteSelectChange={setIsNoteActive} isNight={isNight} />
       </div>
 
       {/* 2. Glassmorphic App Header overlay (editorial style) */}
-      <header className="absolute top-4 left-4 right-4 md:right-auto md:top-6 md:left-6 md:max-w-sm rounded-2xl border border-[#c9a96e]/20 bg-[#fbf9f4]/85 p-4 md:p-5 backdrop-blur-md shadow-xl pointer-events-auto">
+      <header className={`absolute top-4 left-4 right-4 md:right-auto md:top-6 md:left-6 md:max-w-sm rounded-2xl border p-4 md:p-5 backdrop-blur-md shadow-xl pointer-events-auto z-20 theme-transition ${
+        isNight
+          ? 'border-[#c9a96e]/30 bg-[#16222f]/85 text-[#eae6db]'
+          : 'border-[#c9a96e]/20 bg-[#fbf9f4]/85 text-[#4a3e2e]'
+      }`}>
         <div className="flex items-center gap-2">
-          <div className="h-2 w-2 rounded-full bg-[#c9a96e] animate-pulse" />
+          <div className={`h-2 w-2 rounded-full animate-pulse theme-transition ${
+            isNight ? 'bg-[#e3d3b4]' : 'bg-[#c9a96e]'
+          }`} />
           <h1 
             onClick={handleLogoClick}
-            className="text-xl md:text-2xl font-extrabold tracking-tight text-[#4a3e2e] cursor-pointer active:scale-95 transition-transform font-mono"
+            className={`text-xl md:text-2xl font-extrabold tracking-tight cursor-pointer active:scale-95 transition-transform font-mono theme-transition ${
+              isNight ? 'text-[#e3d3b4]' : 'text-[#4a3e2e]'
+            }`}
             title="morrow"
           >
             morrow
           </h1>
         </div>
-        <p className="mt-1.5 text-[11px] md:text-xs text-[#7d6c56] leading-relaxed font-mono hidden sm:block">
+        <p className={`mt-1.5 text-[11px] md:text-xs leading-relaxed font-mono hidden sm:block theme-transition ${
+          isNight ? 'text-[#a1a1aa]' : 'text-[#7d6c56]'
+        }`}>
           An anonymous, geolocated map of human emotion. Share how you are feeling right now and see thoughts from around the globe.
         </p>
       </header>
