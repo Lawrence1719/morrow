@@ -16,14 +16,12 @@ const WorldMap = dynamic(() => import('@/components/Map/WorldMap'), {
   ),
 });
 
-// Dynamically import submission form
-const NoteForm = dynamic(() => import('@/components/Map/NoteForm'), {
-  ssr: false,
-});
+import NoteForm from '@/components/Map/NoteForm';
 
 export default function Home() {
   const router = useRouter();
   const [isFormOpen, setIsFormOpen] = useState(false);
+  const [isNoteActive, setIsNoteActive] = useState(false);
   
   // Easter egg: Click logo 5 times rapidly to navigate to admin panel
   const [clickCount, setClickCount] = useState(0);
@@ -60,7 +58,7 @@ export default function Home() {
       
       {/* 1. World Map background layer */}
       <div className="absolute inset-0 w-full h-full z-0">
-        <WorldMap />
+        <WorldMap onNoteSelectChange={setIsNoteActive} />
       </div>
 
       {/* 2. Glassmorphic App Header overlay (editorial style) */}
@@ -81,7 +79,7 @@ export default function Home() {
       </header>
 
       {/* 3. Drop Note Floating Action Button (aged gold - full width on mobile) */}
-      <div className="absolute bottom-6 left-6 right-6 md:left-auto md:right-10 md:bottom-10 z-[1000] pointer-events-auto">
+      <div className={`absolute bottom-6 left-6 right-6 md:left-auto md:right-10 md:bottom-10 z-[1000] pointer-events-auto transition-all duration-300 ${isNoteActive ? 'opacity-0 scale-95 pointer-events-none md:opacity-100 md:scale-100 md:pointer-events-auto' : ''}`}>
         <button
           onClick={() => setIsFormOpen(true)}
           className="w-full md:w-auto group relative flex items-center justify-center gap-2 overflow-hidden rounded-full bg-[#c9a96e] px-6 py-4 font-semibold text-[#fbf9f4] shadow-[0_4px_20px_rgba(201,169,110,0.3)] transition-all duration-300 hover:scale-[1.04] hover:bg-[#b8985c] hover:shadow-[0_4px_30px_rgba(201,169,110,0.5)] active:scale-[0.98] font-mono text-xs uppercase tracking-wider"
