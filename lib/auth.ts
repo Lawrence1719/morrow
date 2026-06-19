@@ -1,5 +1,6 @@
 import { AuthOptions } from 'next-auth';
 import CredentialsProvider from 'next-auth/providers/credentials';
+import { supabase } from '@/lib/supabase';
 
 export const authOptions: AuthOptions = {
   providers: [
@@ -10,20 +11,32 @@ export const authOptions: AuthOptions = {
         password: { label: 'Password', type: 'password' }
       },
       async authorize(credentials) {
-        const adminEmail = process.env.ADMIN_EMAIL || 'admin@morrow.map';
-        const adminPassword = process.env.ADMIN_PASSWORD || 'adminpassword123';
+        const adminEmail = process.env.ADMIN_EMAIL || 'lawrence.dizon@proton.me';
 
-        if (
-          credentials?.email === adminEmail &&
-          credentials?.password === adminPassword
-        ) {
-          return {
-            id: 'admin',
-            name: 'Administrator',
-            email: adminEmail,
-          };
+        // Limit access to the designated admin email only
+        if (!credentials?.email || !credentials?.password || credentials.email !== adminEmail) {
+          return null;
         }
-        return null;
+
+        try {
+          const { data, error } = await supabase.auth.signInWithPassword({
+            email: credentials.email,
+            password: credentials.password,
+          });
+
+          if (error || !data?.user) {
+            return null;
+          }
+
+          return {
+            id: data.user.id,
+            name: 'Administrator',
+            email: data.user.email || adminEmail,
+          };
+        } catch (err) {
+          console.error('Supabase Auth error during NextAuth authorize:', err);
+          return null;
+        }
       }
     })
   ],
@@ -32,7 +45,7 @@ export const authOptions: AuthOptions = {
     maxAge: 24 * 60 * 60, // 1 day
   },
   pages: {
-    signIn: '/admin/login',
+    signIn: '/admin-management/login',
   },
   callbacks: {
     async jwt({ token, user }) {

@@ -123,45 +123,79 @@ body {
   transition: background-color 1s ease-in-out, border-color 1s ease-in-out, text-color 1s ease-in-out, fill 1s ease-in-out, stroke 1s ease-in-out;
 }
 
-/* Drift animation for day clouds */
-@keyframes drift {
-  0%, 100% {
-    transform: translate(0, 0);
+/* Drift animation for day clouds (continuous one-way flow) */
+@keyframes float-slow {
+  0% {
+    transform: translateX(-55vw) translateY(0);
+    opacity: 0;
   }
-  50% {
-    transform: translate(30px, -10px);
+  5% {
+    opacity: 0;
+  }
+  20% {
+    opacity: 0.45;
+  }
+  80% {
+    opacity: 0.45;
+  }
+  95% {
+    opacity: 0;
+  }
+  100% {
+    transform: translateX(95vw) translateY(10px);
+    opacity: 0;
   }
 }
 
-@keyframes drift-reverse {
-  0%, 100% {
-    transform: translate(0, 0);
+@keyframes float-medium {
+  0% {
+    transform: translateX(-110vw) translateY(0);
+    opacity: 0;
   }
-  50% {
-    transform: translate(-30px, 10px);
+  5% {
+    opacity: 0;
+  }
+  25% {
+    opacity: 0.35;
+  }
+  75% {
+    opacity: 0.35;
+  }
+  95% {
+    opacity: 0;
+  }
+  100% {
+    transform: translateX(25vw) translateY(-15px);
+    opacity: 0;
   }
 }
 
 .animate-drift-slow {
-  animation: drift 25s ease-in-out infinite;
+  animation: float-slow 45s linear infinite;
 }
 
 .animate-drift-medium {
-  animation: drift-reverse 18s ease-in-out infinite;
+  animation: float-medium 32s linear infinite;
 }
 
-/* Twinkle animation for stars */
+/* Twinkle animation with a continuous one-way float/drift and shimmering effect for stars */
 @keyframes twinkle {
-  0%, 100% {
-    opacity: 0.15;
-    transform: scale(0.8);
+  0% {
+    opacity: 0;
+    transform: translateX(-120vw) scale(0.8);
   }
-  50% {
-    opacity: 0.85;
-    transform: scale(1.2);
+  10% { opacity: 0.3; }
+  25% { opacity: 0.8; }
+  40% { opacity: 0.2; }
+  55% { opacity: 0.85; }
+  70% { opacity: 0.3; }
+  85% { opacity: 0.8; }
+  100% {
+    opacity: 0;
+    transform: translateX(120vw) scale(0.8);
   }
 }
 
 .animate-twinkle {
-  animation: twinkle var(--twinkle-duration, 4s) ease-in-out infinite;
+  animation: twinkle var(--twinkle-duration, 40s) linear infinite;
 }

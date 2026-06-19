@@ -71,6 +71,64 @@ CREATE POLICY "Allow public select chat_room_users" ON public.chat_room_users
 CREATE INDEX IF NOT EXISTS chat_room_users_room_id_idx ON public.chat_room_users(room_id);
 CREATE INDEX IF NOT EXISTS chat_room_users_last_active_at_idx ON public.chat_room_users(last_active_at);
 
+-- Function to join or create a chat room atomically (runs as security definer to bypass RLS)
+CREATE OR REPLACE FUNCTION public.join_or_create_chat_room(
+    p_user_token text,
+    p_max_occupants integer
+)
+RETURNS uuid
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+    v_room_id uuid;
+BEGIN
+    -- Check if the user is already in a room
+    SELECT room_id INTO v_room_id
+    FROM public.chat_room_users
+    WHERE user_token = p_user_token
+    LIMIT 1;
+
+    IF v_room_id IS NOT NULL THEN
+        -- Keep their active timestamp fresh
+        UPDATE public.chat_room_users
+        SET last_active_at = now()
+        WHERE user_token = p_user_token;
+        
+        RETURN v_room_id;
+    END IF;
+
+    -- Try to find a room with available space
+    SELECT r.id INTO v_room_id
+    FROM public.chat_rooms r
+    LEFT JOIN public.chat_room_users u ON r.id = u.room_id
+    GROUP BY r.id
+    HAVING count(u.id) < p_max_occupants
+    ORDER BY count(u.id) DESC -- Fill up near-full rooms first
+    LIMIT 1;
+
+    -- If no room is available, create a new one
+    IF v_room_id IS NULL THEN
+        INSERT INTO public.chat_rooms (id)
+        VALUES (gen_random_uuid())
+        RETURNING id INTO v_room_id;
+    END IF;
+
+    -- Add the user to the room
+    INSERT INTO public.chat_room_users (room_id, user_token, last_active_at)
+    VALUES (v_room_id, p_user_token, now())
+    ON CONFLICT (user_token) DO UPDATE
+    SET room_id = EXCLUDED.room_id, last_active_at = now();
+
+    RETURN v_room_id;
+END;
+$$;
+
+-- Secure the function: revoke execution from public roles and restrict it to service_role/postgres
+REVOKE EXECUTE ON FUNCTION public.join_or_create_chat_room(text, integer) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.join_or_create_chat_room(text, integer) TO postgres, service_role;
+
 -- Schedule a minutely job to clean up stale users and rooms
 SELECT cron.schedule(
     'cleanup-stale-chat-users-and-rooms-job',

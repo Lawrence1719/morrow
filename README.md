@@ -90,7 +90,7 @@ Initialize your database schema by running the SQL script in [supabase/schema.sq
 
 To protect the minimal look of the landing page, the link to the admin panel is hidden. You can access it through the following methods:
 
-1. **Direct Navigation:** Head directly to the `/admin` route (e.g. `http://localhost:3000/admin`).
+1. **Direct Navigation:** Head directly to the `/admin-management` route (e.g. `http://localhost:3000/admin-management`).
 2. **Keyboard Shortcut:** Press **`Ctrl + Shift + A`** simultaneously on the map.
 3. **Logo Easter Egg:** Click the **"morrow"** header title in the top-left corner **5 times rapidly** (within 1 second).
 

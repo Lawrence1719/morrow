@@ -4,7 +4,7 @@ export default withAuth;
 
 export const config = {
   matcher: [
-    // Protect /admin and any subroutes, but exclude /admin/login
-    '/admin((?!/login).*)',
+    // Protect /admin-management and any subroutes, but exclude /admin-management/login
+    '/admin-management((?!/login).*)',
   ],
 };

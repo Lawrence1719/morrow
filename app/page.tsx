@@ -106,8 +106,8 @@ export default function Home() {
       top: Math.random() * 100,
       left: Math.random() * 100,
       size: Math.random() * 2 + 0.8, // 0.8px to 2.8px
-      duration: Math.random() * 4 + 3, // 3s to 7s
-      delay: Math.random() * 5, // 0s to 5s
+      duration: Math.random() * 25 + 25, // 25s to 50s (slow majestic float)
+      delay: Math.random() * -50, // Negative delay so stars start scattered and moving instantly on load
     }));
     setStars(generatedStars);
 
@@ -178,7 +178,7 @@ export default function Home() {
       const newCount = clickCount + 1;
       setClickCount(newCount);
       if (newCount >= 5) {
-        router.push('/admin');
+        router.push('/admin-management');
       }
     } else {
       setClickCount(1);
@@ -191,7 +191,7 @@ export default function Home() {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.ctrlKey && e.shiftKey && e.key.toLowerCase() === 'a') {
         e.preventDefault();
-        router.push('/admin');
+        router.push('/admin-management');
       }
     };
     window.addEventListener('keydown', handleKeyDown);

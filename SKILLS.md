@@ -90,7 +90,7 @@ flowchart TD
 morrow/
 ├── app/
 │   ├── page.tsx                  # Landing page with map
-│   ├── admin/
+│   ├── admin-management/
 │   │   ├── page.tsx              # Admin dashboard
 │   │   └── layout.tsx            # Auth guard for admin routes
 │   └── api/
@@ -116,7 +116,7 @@ morrow/
 │   └── notesStore.ts             # Zustand store
 ├── types/
 │   └── index.ts                  # Note, Mood, Admin types
-└── middleware.ts                  # Protects /admin routes
+└── middleware.ts                  # Protects /admin-management routes
 ```
 
 **Conventions:**

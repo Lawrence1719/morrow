@@ -72,8 +72,8 @@ export default function AdminDashboard() {
       top: Math.random() * 100,
       left: Math.random() * 100,
       size: Math.random() * 2 + 0.8, // 0.8px to 2.8px
-      duration: Math.random() * 4 + 3, // 3s to 7s
-      delay: Math.random() * 5, // 0s to 5s
+      duration: Math.random() * 25 + 25, // 25s to 50s (slow majestic float)
+      delay: Math.random() * -50, // Negative delay so stars start scattered and moving instantly on load
     }));
     setStars(generatedStars);
 
@@ -106,7 +106,7 @@ export default function AdminDashboard() {
   useEffect(() => {
     // Redirect if not authenticated (middleware should also protect this, but it is good defense in depth)
     if (status === 'unauthenticated') {
-      router.push('/admin/login');
+      router.push('/admin-management/login');
     } else if (status === 'authenticated') {
       fetchAdminNotes();
     }

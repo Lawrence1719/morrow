@@ -67,8 +67,8 @@ export default function AdminLogin() {
       top: Math.random() * 100,
       left: Math.random() * 100,
       size: Math.random() * 2 + 0.8, // 0.8px to 2.8px
-      duration: Math.random() * 4 + 3, // 3s to 7s
-      delay: Math.random() * 5, // 0s to 5s
+      duration: Math.random() * 25 + 25, // 25s to 50s (slow majestic float)
+      delay: Math.random() * -50, // Negative delay so stars start scattered and moving instantly on load
     }));
     setStars(generatedStars);
 
@@ -93,7 +93,7 @@ export default function AdminLogin() {
         setError('Invalid admin credentials.');
         setIsLoading(false);
       } else {
-        router.push('/admin');
+        router.push('/admin-management');
         router.refresh();
       }
     } catch (err) {
