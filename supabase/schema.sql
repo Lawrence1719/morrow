@@ -25,7 +25,7 @@ CREATE POLICY "Allow public insert" ON public.notes
     TO anon, authenticated
     WITH CHECK (is_hidden = FALSE);
 
--- Index on coordinates and visibility for fast leaflet bounding box queries
+-- Index on coordinates and visibility for fast geographical coordinate queries
 CREATE INDEX IF NOT EXISTS notes_lat_lng_idx ON public.notes(latitude, longitude) WHERE is_hidden = FALSE;
 CREATE INDEX IF NOT EXISTS notes_created_at_idx ON public.notes(created_at DESC);
 

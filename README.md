@@ -2,13 +2,13 @@
 
 An anonymous, geolocated map of human emotion. Share how you are feeling right now and see thoughts from around the globe.
 
-Built with Next.js, Leaflet, NextAuth, and Supabase.
+Built with Next.js, D3.js, NextAuth, and Supabase.
 
 ---
 
 ## 🌟 Key Features
 
-* **Interactive Mood Map:** A light, minimal, paper-like map design (CartoDB Positron) loaded with custom glowing pulse indicators matching the user's emotion (e.g. *happy, sad, dreamy, anxious, peaceful*).
+* **Interactive Mood Map:** A highly polished, responsive 3D interactive SVG globe built with D3.js, supporting interactive dragging, inertia physics, pinch-to-zoom, and smooth auto-rotation, loaded with custom glowing pulse indicators matching the user's emotion (e.g. *happy, sad, dreamy, anxious, peaceful*).
 * **IP-Based Geolocation:** Automatically resolves the user's city coordinates based on their request IP address, with fallback random world cities for private/localhost connections.
 * **Live Realtime Synchronization:** Subscribes to Supabase PostgreSQL changes, delivering live note posts globally to active users.
 * **Glassmorphic Toast Notifications:** A custom client-side notification stack that slides in custom-styled mood toasts when other users share thoughts.
@@ -21,7 +21,7 @@ Built with Next.js, Leaflet, NextAuth, and Supabase.
 
 * **Frontend:** React 19, Next.js 16 (App Router & Turbopack), Tailwind CSS 4
 * **State Management:** Zustand 5
-* **Mapping:** Leaflet & React Leaflet 5
+* **Mapping:** D3.js (d3-geo) interactive SVG globe
 * **Authentication:** NextAuth.js 4 (Credentials Provider)
 * **Database & Realtime:** Supabase (PostgreSQL), `pg_cron`
 * **Limiting & Security:** Upstash Redis (Sliding window rate-limiting with in-memory map fallbacks), Row Level Security (RLS)
