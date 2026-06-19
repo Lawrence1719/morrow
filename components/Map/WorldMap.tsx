@@ -4,6 +4,7 @@ import React, { useEffect, useRef, useState, useCallback } from 'react';
 import { geoOrthographic, geoPath, geoGraticule, geoDistance } from 'd3-geo';
 import { useNotesStore, Note } from '@/stores/notesStore';
 import { MOOD_STYLES } from '@/lib/moods';
+import { ZoomIn, ZoomOut, RotateCcw } from 'lucide-react';
 import GlobeDetailsCard from './GlobeDetailsCard';
 
 const PLACE_LABELS = [
@@ -31,11 +32,18 @@ const WorldMap: React.FC<WorldMapProps> = ({ onNoteSelectChange, isNight = false
   const { notes, fetchNotes, subscribeToRealtime, isLoading } = useNotesStore();
   
   const containerRef = useRef<HTMLDivElement>(null);
-  const [dimensions, setDimensions] = useState({ width: 600, height: 600 });
   const [containerSize, setContainerSize] = useState({ width: 800, height: 600 });
   const [geoJson, setGeoJson] = useState<any>(null);
   
   const [rotation, setRotation] = useState<[number, number, number]>([0, -15, 0]);
+  const [zoom, setZoom] = useState<number>(1.0);
+  const targetZoom = useRef<number>(1.0);
+  
+  // Multitouch gesture tracking for pinch-to-zoom
+  const activePointers = useRef<Map<number, { x: number; y: number }>>(new Map());
+  const initialPinchDistance = useRef<number | null>(null);
+  const initialZoom = useRef<number>(1.0);
+  
   const [selectedNote, setSelectedNote] = useState<Note | null>(null);
   
   // Cluster properties state
@@ -153,8 +161,6 @@ const WorldMap: React.FC<WorldMapProps> = ({ onNoteSelectChange, isNight = false
     const updateSize = () => {
       if (containerRef.current) {
         const rect = containerRef.current.getBoundingClientRect();
-        const size = Math.min(rect.width, rect.height) || 600;
-        setDimensions({ width: size, height: size });
         setContainerSize({ width: rect.width, height: rect.height });
       }
     };
@@ -241,6 +247,16 @@ const WorldMap: React.FC<WorldMapProps> = ({ onNoteSelectChange, isNight = false
         return [nextYaw, nextPitch, 0];
       });
 
+      // 3. Always ease the actual state zoom towards targetZoom
+      setZoom((currentZoom) => {
+        const diffZoom = targetZoom.current - currentZoom;
+        if (Math.abs(diffZoom) < 0.001) {
+          return targetZoom.current;
+        }
+        const easing = isDragging.current ? 0.25 : 0.15;
+        return currentZoom + diffZoom * easing;
+      });
+
       animationFrameId = requestAnimationFrame(animate);
     };
 
@@ -249,10 +265,10 @@ const WorldMap: React.FC<WorldMapProps> = ({ onNoteSelectChange, isNight = false
   }, []);
 
   // Set up D3 projections
-  const radius = (dimensions.width / 2) * 0.9;
+  const radius = (Math.min(containerSize.width, containerSize.height) / 2) * 0.9;
   const projection = geoOrthographic()
-    .scale(radius)
-    .translate([dimensions.width / 2, dimensions.height / 2])
+    .scale(radius * zoom)
+    .translate([containerSize.width / 2, containerSize.height / 2])
     .rotate(rotation);
 
   const pathGenerator = geoPath().projection(projection);
@@ -261,30 +277,64 @@ const WorldMap: React.FC<WorldMapProps> = ({ onNoteSelectChange, isNight = false
   const spherePath = pathGenerator({ type: 'Sphere' }) || '';
   const graticulePath = pathGenerator(geoGraticule()()) || '';
 
-  // Drag handlers
+  // Drag, wheel and gesture handlers
   const handlePointerDown = (e: React.PointerEvent<SVGSVGElement>) => {
-    isDragging.current = true;
-    pointerStart.current = { x: e.clientX, y: e.clientY };
-    rotationStart.current = rotation;
-    targetRotation.current = rotation; // Sync target to the current visual rotation state
-    clickStart.current = { x: e.clientX, y: e.clientY, time: Date.now() };
-    focusTarget.current = null;
-    e.currentTarget.setPointerCapture(e.pointerId);
+    activePointers.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    try {
+      e.currentTarget.setPointerCapture(e.pointerId);
+    } catch (err) {
+      // Ignore setPointerCapture failures
+    }
 
-    // Initialize tracking variables for flick momentum/inertia
-    lastPointerPos.current = { x: e.clientX, y: e.clientY };
-    lastMoveTime.current = Date.now();
-    dragVelocity.current = [0, 0];
-    inertiaVelocity.current = [0, 0];
+    if (activePointers.current.size === 1) {
+      isDragging.current = true;
+      pointerStart.current = { x: e.clientX, y: e.clientY };
+      rotationStart.current = rotation;
+      targetRotation.current = rotation; // Sync target to the current visual rotation state
+      clickStart.current = { x: e.clientX, y: e.clientY, time: Date.now() };
+      focusTarget.current = null;
+
+      // Initialize tracking variables for flick momentum/inertia
+      lastPointerPos.current = { x: e.clientX, y: e.clientY };
+      lastMoveTime.current = Date.now();
+      dragVelocity.current = [0, 0];
+      inertiaVelocity.current = [0, 0];
+    } else if (activePointers.current.size === 2) {
+      // Transition from drag to pinch-to-zoom
+      isDragging.current = false;
+      const pointers = Array.from(activePointers.current.values());
+      const dx = pointers[0].x - pointers[1].x;
+      const dy = pointers[0].y - pointers[1].y;
+      initialPinchDistance.current = Math.sqrt(dx * dx + dy * dy);
+      initialZoom.current = targetZoom.current;
+    }
   };
 
   const handlePointerMove = (e: React.PointerEvent<SVGSVGElement>) => {
+    if (!activePointers.current.has(e.pointerId)) return;
+    activePointers.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
+
+    // Handle pinch-to-zoom if 2 fingers are down
+    if (activePointers.current.size === 2 && initialPinchDistance.current !== null) {
+      const pointers = Array.from(activePointers.current.values());
+      const dx = pointers[0].x - pointers[1].x;
+      const dy = pointers[0].y - pointers[1].y;
+      const currentDistance = Math.sqrt(dx * dx + dy * dy);
+
+      if (initialPinchDistance.current > 0) {
+        const factor = currentDistance / initialPinchDistance.current;
+        targetZoom.current = Math.max(0.8, Math.min(5.0, initialZoom.current * factor));
+      }
+      return;
+    }
+
     if (!isDragging.current) return;
     
     const deltaX = e.clientX - pointerStart.current.x;
     const deltaY = e.clientY - pointerStart.current.y;
     
-    const sensitivity = 360 / (dimensions.width * 1.5);
+    // Adjust drag sensitivity based on zoom level (zoomed in = slower panning/rotation)
+    const sensitivity = (360 / (Math.min(containerSize.width, containerSize.height) * 1.5)) / targetZoom.current;
     const newYaw = rotationStart.current[0] + deltaX * sensitivity;
     const newPitch = Math.max(-50, Math.min(50, rotationStart.current[1] - deltaY * sensitivity));
     
@@ -313,35 +363,68 @@ const WorldMap: React.FC<WorldMapProps> = ({ onNoteSelectChange, isNight = false
   };
 
   const handlePointerUp = (e: React.PointerEvent<SVGSVGElement>) => {
-    if (isDragging.current) {
-      isDragging.current = false;
+    const wasDragging = isDragging.current;
+    activePointers.current.delete(e.pointerId);
+    
+    try {
       e.currentTarget.releasePointerCapture(e.pointerId);
+    } catch (err) {
+      // Ignore releasePointerCapture failures
+    }
 
-      const dragDuration = Date.now() - clickStart.current.time;
-      const dragDistance = Math.sqrt(
-        Math.pow(e.clientX - clickStart.current.x, 2) +
-        Math.pow(e.clientY - clickStart.current.y, 2)
-      );
+    if (activePointers.current.size === 1) {
+      // Re-initialize drag for the single remaining pointer to prevent jumping
+      const remainingId = Array.from(activePointers.current.keys())[0];
+      const remainingPointer = activePointers.current.get(remainingId)!;
+      isDragging.current = true;
+      pointerStart.current = { x: remainingPointer.x, y: remainingPointer.y };
+      rotationStart.current = rotation;
+      lastPointerPos.current = { x: remainingPointer.x, y: remainingPointer.y };
+      lastMoveTime.current = Date.now();
+      dragVelocity.current = [0, 0];
+      initialPinchDistance.current = null;
+    } else if (activePointers.current.size === 0) {
+      initialPinchDistance.current = null;
+      isDragging.current = false;
 
-      // Tap on empty space of SVG closes card
-      if (dragDuration < 250 && dragDistance < 6) {
-        setSelectedNote(null);
-        focusTarget.current = null;
-        inertiaVelocity.current = [0, 0];
-      } else {
-        // Trigger inertia momentum if cursor was moving on release
-        const timeSinceLastMove = Date.now() - lastMoveTime.current;
-        if (timeSinceLastMove < 80) {
-          // Convert from degrees/ms to degrees/frame (~60fps) and clamp speed
-          const maxVel = 8;
-          const yawVel = Math.max(-maxVel, Math.min(maxVel, dragVelocity.current[0] * 16));
-          const pitchVel = Math.max(-maxVel, Math.min(maxVel, dragVelocity.current[1] * 16));
-          inertiaVelocity.current = [yawVel, pitchVel];
-        } else {
+      if (wasDragging) {
+        const dragDuration = Date.now() - clickStart.current.time;
+        const dragDistance = Math.sqrt(
+          Math.pow(e.clientX - clickStart.current.x, 2) +
+          Math.pow(e.clientY - clickStart.current.y, 2)
+        );
+
+        // Tap on empty space of SVG closes card
+        if (dragDuration < 250 && dragDistance < 6) {
+          setSelectedNote(null);
+          focusTarget.current = null;
           inertiaVelocity.current = [0, 0];
+        } else {
+          // Trigger inertia momentum if cursor was moving on release
+          const timeSinceLastMove = Date.now() - lastMoveTime.current;
+          if (timeSinceLastMove < 80) {
+            // Convert from degrees/ms to degrees/frame (~60fps) and clamp speed
+            const maxVel = 8;
+            const yawVel = Math.max(-maxVel, Math.min(maxVel, dragVelocity.current[0] * 16));
+            const pitchVel = Math.max(-maxVel, Math.min(maxVel, dragVelocity.current[1] * 16));
+            inertiaVelocity.current = [yawVel, pitchVel];
+          } else {
+            inertiaVelocity.current = [0, 0];
+          }
         }
       }
     }
+  };
+
+  const handleWheel = (e: React.WheelEvent<SVGSVGElement>) => {
+    const zoomSensitivity = 0.05;
+    const direction = e.deltaY < 0 ? 1 : -1;
+    targetZoom.current = Math.max(0.8, Math.min(5.0, targetZoom.current + direction * zoomSensitivity * targetZoom.current));
+  };
+
+  const handleDoubleClick = (e: React.MouseEvent<SVGSVGElement>) => {
+    // Zoom in on double click
+    targetZoom.current = Math.min(5.0, targetZoom.current * 1.5);
   };
 
   // Group notes into clusters based on distance to handle overlapping/jittered pins
@@ -353,7 +436,7 @@ const WorldMap: React.FC<WorldMapProps> = ({ onNoteSelectChange, isNight = false
     latitude: number;
     longitude: number;
   }[] = [];
-  const distanceThreshold = 0.15; // degrees (~15km)
+  const distanceThreshold = 1.5; // degrees (~150km) to group overlapping pins
 
   // Sort notes latest first
   const sortedNotes = [...notes].sort(
@@ -410,15 +493,14 @@ const WorldMap: React.FC<WorldMapProps> = ({ onNoteSelectChange, isNight = false
     if (isVisible) {
       const projected = projection([targetLng, targetLat]);
       if (projected) {
-        const svgOffsetX = (containerSize.width - dimensions.width) / 2;
-        const svgOffsetY = (containerSize.height - dimensions.height) / 2;
-        pinX = svgOffsetX + projected[0];
-        pinY = svgOffsetY + projected[1];
+        pinX = projected[0];
+        pinY = projected[1];
       }
     }
   }
 
   const isMapLoading = isLoading || !geoJson;
+  const oceanOpacity = Math.max(0, Math.min(1, (2.0 - zoom) / 0.8));
 
   return (
     <div className="relative w-full h-full bg-transparent overflow-hidden">
@@ -438,11 +520,13 @@ const WorldMap: React.FC<WorldMapProps> = ({ onNoteSelectChange, isNight = false
       <div ref={containerRef} className="w-full h-full flex items-center justify-center overflow-hidden">
         {geoJson && (
           <svg
-            width={dimensions.width}
-            height={dimensions.height}
+            width={containerSize.width}
+            height={containerSize.height}
             onPointerDown={handlePointerDown}
             onPointerMove={handlePointerMove}
             onPointerUp={handlePointerUp}
+            onWheel={handleWheel}
+            onDoubleClick={handleDoubleClick}
             style={{
               maxWidth: '100%',
               maxHeight: '100%',
@@ -454,8 +538,9 @@ const WorldMap: React.FC<WorldMapProps> = ({ onNoteSelectChange, isNight = false
             <path
               d={spherePath}
               fill={isNight ? '#0d131a' : '#f5f2eb'}
+              opacity={oceanOpacity}
               className="theme-transition"
-              style={{ transition: 'fill 1s ease-in-out' }}
+              style={{ transition: 'fill 1s ease-in-out, opacity 0.3s ease-out' }}
             />
 
             {/* Graticule / Gridlines */}
@@ -464,9 +549,9 @@ const WorldMap: React.FC<WorldMapProps> = ({ onNoteSelectChange, isNight = false
               fill="none"
               stroke="#c9a96e"
               strokeWidth={0.5}
-              opacity={isNight ? 0.08 : 0.15}
+              opacity={(isNight ? 0.08 : 0.15) * oceanOpacity}
               className="theme-transition"
-              style={{ transition: 'opacity 1s ease-in-out' }}
+              style={{ transition: 'opacity 0.3s ease-out' }}
             />
 
             {/* Landmasses / Countries */}
@@ -508,6 +593,9 @@ const WorldMap: React.FC<WorldMapProps> = ({ onNoteSelectChange, isNight = false
               // Easing decay opacity near the horizon edge of the globe
               const edgeFade = Math.max(0, Math.min(1, (Math.PI / 3.2 - distance) / 0.15));
 
+              // Fade out labels at high zoom levels to reduce clutter
+              const zoomFade = Math.max(0, Math.min(1, (2.5 - zoom) / 1.0));
+
               return (
                 <text
                   key={label.name}
@@ -526,7 +614,7 @@ const WorldMap: React.FC<WorldMapProps> = ({ onNoteSelectChange, isNight = false
                     fontWeight: isOcean ? 'normal' : '600',
                     letterSpacing: isOcean ? '1.5px' : '2px',
                     textTransform: 'uppercase',
-                    opacity: (isOcean ? 0.45 : 0.6) * edgeFade,
+                    opacity: (isOcean ? 0.45 : 0.6) * edgeFade * zoomFade,
                     userSelect: 'none',
                     transition: 'fill 1s ease-in-out, opacity 0.2s',
                   }}
@@ -586,6 +674,12 @@ const WorldMap: React.FC<WorldMapProps> = ({ onNoteSelectChange, isNight = false
                   {isCluster ? (
                     // CLUSTER PIN RENDER (Multiple Notes at one location)
                     <>
+                      {/* Transparent hit target to make clicking much easier */}
+                      <circle
+                        r={24}
+                        fill="transparent"
+                        className="cursor-pointer"
+                      />
                       {/* Outer pulse ring */}
                       <circle
                         r={isSelected ? 18 : 14}
@@ -628,6 +722,12 @@ const WorldMap: React.FC<WorldMapProps> = ({ onNoteSelectChange, isNight = false
                   ) : (
                     // SINGLE PIN RENDER (Only one note at this location)
                     <>
+                      {/* Transparent hit target to make clicking much easier */}
+                      <circle
+                        r={20}
+                        fill="transparent"
+                        className="cursor-pointer"
+                      />
                       {/* Ping Animation Ring */}
                       <circle
                         r={isSelected ? 14 : 9}
@@ -731,6 +831,56 @@ const WorldMap: React.FC<WorldMapProps> = ({ onNoteSelectChange, isNight = false
           isNight={isNight}
         />
       )}
+
+      {/* Zoom Controls Overlay */}
+      <div className={`absolute bottom-24 left-6 md:bottom-10 md:left-10 z-[1000] flex flex-col gap-2 rounded-2xl border p-1.5 backdrop-blur-xl shadow-2xl theme-transition select-none ${
+        isNight
+          ? 'border-white/10 bg-[#16222f]/35 text-[#eae6db]'
+          : 'border-[#eae6db] bg-white/20 text-[#4a3e2e]'
+      }`}>
+        <button
+          onClick={() => {
+            targetZoom.current = Math.min(5.0, targetZoom.current + 0.5);
+          }}
+          className={`p-2 rounded-xl transition-all active:scale-95 flex items-center justify-center cursor-pointer ${
+            isNight
+              ? 'hover:bg-white/10 text-[#eae6db] active:bg-white/20'
+              : 'hover:bg-[#4a3e2e]/5 text-[#4a3e2e] active:bg-[#4a3e2e]/10'
+          }`}
+          title="Zoom In"
+        >
+          <ZoomIn className="h-4.5 w-4.5" />
+        </button>
+        <button
+          onClick={() => {
+            targetZoom.current = Math.max(0.8, targetZoom.current - 0.5);
+          }}
+          className={`p-2 rounded-xl transition-all active:scale-95 flex items-center justify-center cursor-pointer ${
+            isNight
+              ? 'hover:bg-white/10 text-[#eae6db] active:bg-white/20'
+              : 'hover:bg-[#4a3e2e]/5 text-[#4a3e2e] active:bg-[#4a3e2e]/10'
+          }`}
+          title="Zoom Out"
+        >
+          <ZoomOut className="h-4.5 w-4.5" />
+        </button>
+        <div className={`h-px mx-1 my-0.5 ${isNight ? 'bg-white/10' : 'bg-[#4a3e2e]/10'}`} />
+        <button
+          onClick={() => {
+            targetZoom.current = 1.0;
+            targetRotation.current = [0, -15, 0];
+            focusTarget.current = null;
+          }}
+          className={`p-2 rounded-xl transition-all active:scale-95 flex items-center justify-center cursor-pointer ${
+            isNight
+              ? 'hover:bg-white/10 text-[#eae6db] active:bg-white/20'
+              : 'hover:bg-[#4a3e2e]/5 text-[#4a3e2e] active:bg-[#4a3e2e]/10'
+          }`}
+          title="Reset View"
+        >
+          <RotateCcw className="h-4.5 w-4.5" />
+        </button>
+      </div>
 
       {/* Decorative Vignette Overlay */}
       <div className={`absolute inset-0 pointer-events-none border-[12px] z-[99] theme-transition ${

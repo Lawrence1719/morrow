@@ -27,7 +27,27 @@ export default function RootLayout({
     <html
       lang="en"
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
+      suppressHydrationWarning
     >
+      <head>
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `
+              (function() {
+                try {
+                  const now = new Date();
+                  const phOptionsHour = { timeZone: 'Asia/Manila', hour: '2-digit', hour12: false };
+                  const formatterHour = new Intl.DateTimeFormat('en-US', phOptionsHour);
+                  const hour = parseInt(formatterHour.format(now), 10);
+                  const isNight = hour >= 18 || hour < 6;
+                  const color = isNight ? '#0b0f19' : '#f5f2eb';
+                  document.documentElement.style.backgroundColor = color;
+                } catch (e) {}
+              })();
+            `,
+          }}
+        />
+      </head>
       <body className="min-h-full flex flex-col">
         {children}
         <ToastContainer />

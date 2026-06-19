@@ -141,7 +141,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Message must be under 280 characters' }, { status: 400 });
     }
 
-    const validMoods = ['happy', 'sad', 'dreamy', 'anxious', 'peaceful'];
+    const validMoods = ['happy', 'sad', 'dreamy', 'anxious', 'peaceful', 'angry', 'excited', 'lonely'];
     if (!mood || typeof mood !== 'string' || !validMoods.includes(mood.toLowerCase())) {
       return NextResponse.json({ error: 'Invalid or missing mood classification' }, { status: 400 });
     }

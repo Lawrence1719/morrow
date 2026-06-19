@@ -53,5 +53,32 @@ export const MOOD_STYLES: Record<string, MoodStyle> = {
     label: 'Dreamy',
     emoji: '🌌',
     gradient: 'from-[#dccce0] to-[#9c89a4]'
+  },
+  angry: {
+    color: '#b55347', // Volcanic Terracotta
+    bg: 'bg-[#dcaaa4]',
+    border: 'border-[#b55347]',
+    pulse: 'bg-[#dcaaa4]/60',
+    label: 'Angry',
+    emoji: '🔥',
+    gradient: 'from-[#e8bbb5] to-[#b55347]'
+  },
+  excited: {
+    color: '#d19e45', // Vibrant Mustard Yellow
+    bg: 'bg-[#e6ca97]',
+    border: 'border-[#d19e45]',
+    pulse: 'bg-[#e6ca97]/60',
+    label: 'Excited',
+    emoji: '⚡',
+    gradient: 'from-[#eedda8] to-[#d19e45]'
+  },
+  lonely: {
+    color: '#5b8e96', // Stormy Blue-Teal
+    bg: 'bg-[#96bec4]',
+    border: 'border-[#5b8e96]',
+    pulse: 'bg-[#96bec4]/60',
+    label: 'Lonely',
+    emoji: '🌧️',
+    gradient: 'from-[#b2d5db] to-[#5b8e96]'
   }
 };
