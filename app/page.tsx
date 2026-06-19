@@ -205,6 +205,39 @@ export default function Home() {
         : 'bg-[#f5f2eb] text-[#4a3e2e]'
     }`}>
       
+      {/* Structured Data (JSON-LD) for SEO */}
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{
+          __html: JSON.stringify({
+            "@context": "https://schema.org",
+            "@graph": [
+              {
+                "@type": "WebSite",
+                "@id": "https://morrow-world.vercel.app/#website",
+                "url": "https://morrow-world.vercel.app/",
+                "name": "morrow",
+                "description": "An anonymous, geolocated map of human emotion and notes. Share how you are feeling right now, drop a note on the map, and see thoughts from around the globe.",
+                "publisher": {
+                  "@type": "Organization",
+                  "name": "morrow team"
+                }
+              },
+              {
+                "@type": "WebApplication",
+                "@id": "https://morrow-world.vercel.app/#webapplication",
+                "url": "https://morrow-world.vercel.app/",
+                "name": "morrow — world mood & notes map",
+                "applicationCategory": "InteractiveMap, NotesApplication",
+                "operatingSystem": "All",
+                "browserRequirements": "Requires JavaScript and HTML5",
+                "description": "An anonymous, geolocated map of human emotion and notes. Share how you are feeling right now, drop a note on the map, and see thoughts from around the globe."
+              }
+            ]
+          }),
+        }}
+      />
+
       {/* Dynamic Background Layer for Day (warm sun, blurred clouds) */}
       <div className={`absolute inset-0 z-0 ${mounted ? 'transition-opacity duration-1000' : ''} ${isNight ? 'opacity-0' : 'opacity-100 bg-[#f5f2eb]'}`}>
         {/* Soft Glowing Sun */}

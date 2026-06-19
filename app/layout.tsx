@@ -13,9 +13,63 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
+const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://morrow-world.vercel.app";
+
 export const metadata: Metadata = {
-  title: "morrow — world mood map",
-  description: "An anonymous, geolocated map of human emotion. Share how you are feeling right now and see thoughts from around the globe.",
+  title: "morrow — world mood & notes map",
+  description: "An anonymous, geolocated map of human emotion and notes. Share how you are feeling right now, drop a note on the map, and see thoughts from around the globe.",
+  metadataBase: new URL(baseUrl),
+  keywords: [
+    "notes app",
+    "anonymous notes",
+    "geolocated notes",
+    "world mood map",
+    "human emotion map",
+    "anonymous feelings sharing",
+    "emotional geography",
+    "global thoughts map",
+    "mental health map",
+    "interactive mood map",
+    "map of notes",
+    "morrow"
+  ],
+  authors: [{ name: "morrow team" }],
+  alternates: {
+    canonical: "/",
+  },
+  openGraph: {
+    title: "morrow — world mood & notes map",
+    description: "An anonymous, geolocated map of human emotion and notes. Share how you are feeling right now, drop a note on the map, and see thoughts from around the globe.",
+    url: baseUrl,
+    siteName: "morrow",
+    images: [
+      {
+        url: "/icon.png",
+        width: 512,
+        height: 512,
+        alt: "morrow — world mood & notes map logo",
+      },
+    ],
+    locale: "en_US",
+    type: "website",
+  },
+  twitter: {
+    card: "summary",
+    title: "morrow — world mood & notes map",
+    description: "An anonymous, geolocated map of human emotion and notes. Share how you are feeling right now, drop a note on the map, and see thoughts from around the globe.",
+    images: ["/icon.png"],
+  },
+  robots: {
+    index: true,
+    follow: true,
+    googleBot: {
+      index: true,
+      follow: true,
+      "max-video-preview": -1,
+      "max-image-preview": "large",
+      "max-snippet": -1,
+    },
+  },
 };
 
 export default function RootLayout({
