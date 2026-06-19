@@ -51,11 +51,11 @@ const GlobeDetailsCard: React.FC<GlobeDetailsCardProps> = ({
       onMouseLeave={onMouseLeave}
     >
       <div 
-        className={`w-full rounded-t-2xl md:rounded-2xl border p-5 shadow-2xl theme-transition ${
+        className={`w-full rounded-t-2xl md:rounded-2xl border p-5 shadow-2xl theme-transition backdrop-blur-xl ${
           isNight 
-            ? 'border-[#c9a96e]/30 bg-[#16222f]/90 text-[#eae6db]' 
-            : 'border-[#c9a96e]/20 bg-[#fbf9f4]/90 text-[#4a3e2e]'
-        } backdrop-blur-md`}
+            ? 'border-white/20 bg-[#16222f]/20 text-[#eae6db]' 
+            : 'border-white/60 bg-white/10 text-[#4a3e2e]'
+        }`}
       >
         {/* Glow accent */}
         <div className={`absolute top-0 left-1/2 -translate-x-1/2 md:left-6 md:translate-x-0 h-1 w-20 blur-sm bg-gradient-to-r ${moodStyle.gradient}`} />

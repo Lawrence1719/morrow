@@ -25,6 +25,7 @@ export default function Home() {
   
   // Real-time day/night theme check based on PH time (Asia/Manila)
   const [isNight, setIsNight] = useState(false);
+  const [currentTime, setCurrentTime] = useState('');
   interface Star {
     id: number;
     top: number;
@@ -37,19 +38,25 @@ export default function Home() {
 
   useEffect(() => {
     const checkTime = () => {
+      const now = new Date();
       try {
-        const phOptions = { timeZone: 'Asia/Manila', hour: '2-digit', hour12: false } as const;
-        const formatter = new Intl.DateTimeFormat('en-US', phOptions);
-        const hour = parseInt(formatter.format(new Date()), 10);
+        const phOptionsHour = { timeZone: 'Asia/Manila', hour: '2-digit', hour12: false } as const;
+        const formatterHour = new Intl.DateTimeFormat('en-US', phOptionsHour);
+        const hour = parseInt(formatterHour.format(now), 10);
         setIsNight(hour >= 18 || hour < 6);
+
+        const phOptionsTime = { timeZone: 'Asia/Manila', hour: 'numeric', minute: '2-digit', hour12: true } as const;
+        const formatterTime = new Intl.DateTimeFormat('en-US', phOptionsTime);
+        setCurrentTime(formatterTime.format(now));
       } catch (e) {
-        const localHour = new Date().getHours();
+        const localHour = now.getHours();
         setIsNight(localHour >= 18 || localHour < 6);
+        setCurrentTime(now.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true }));
       }
     };
 
     checkTime();
-    const interval = setInterval(checkTime, 60000);
+    const interval = setInterval(checkTime, 1000);
 
     // Generate stars only on client side to avoid Next.js hydration mismatch
     const generatedStars = Array.from({ length: 45 }).map((_, i) => ({
@@ -145,24 +152,33 @@ export default function Home() {
       </div>
 
       {/* 2. Glassmorphic App Header overlay (editorial style) */}
-      <header className={`absolute top-4 left-4 right-4 md:right-auto md:top-6 md:left-6 md:max-w-sm rounded-2xl border p-4 md:p-5 backdrop-blur-md shadow-xl pointer-events-auto z-20 theme-transition ${
+      <header className={`absolute top-4 left-4 right-4 md:right-auto md:top-6 md:left-6 md:max-w-sm rounded-2xl border p-4 md:p-5 backdrop-blur-xl shadow-2xl pointer-events-auto z-20 theme-transition ${
         isNight
-          ? 'border-[#c9a96e]/30 bg-[#16222f]/85 text-[#eae6db]'
-          : 'border-[#c9a96e]/20 bg-[#fbf9f4]/85 text-[#4a3e2e]'
+          ? 'border-white/20 bg-[#16222f]/20 text-[#eae6db]'
+          : 'border-white/60 bg-white/10 text-[#4a3e2e]'
       }`}>
-        <div className="flex items-center gap-2">
-          <div className={`h-2 w-2 rounded-full animate-pulse theme-transition ${
-            isNight ? 'bg-[#e3d3b4]' : 'bg-[#c9a96e]'
-          }`} />
-          <h1 
-            onClick={handleLogoClick}
-            className={`text-xl md:text-2xl font-extrabold tracking-tight cursor-pointer active:scale-95 transition-transform font-mono theme-transition ${
-              isNight ? 'text-[#e3d3b4]' : 'text-[#4a3e2e]'
-            }`}
-            title="morrow"
-          >
-            morrow
-          </h1>
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <div className={`h-2 w-2 rounded-full animate-pulse theme-transition ${
+              isNight ? 'bg-[#e3d3b4]' : 'bg-[#c9a96e]'
+            }`} />
+            <h1 
+              onClick={handleLogoClick}
+              className={`text-xl md:text-2xl font-extrabold tracking-tight cursor-pointer active:scale-95 transition-transform font-mono theme-transition ${
+                isNight ? 'text-[#e3d3b4]' : 'text-[#4a3e2e]'
+              }`}
+              title="morrow"
+            >
+              morrow
+            </h1>
+          </div>
+          {currentTime && (
+            <div className={`text-xs md:text-sm font-mono px-3 py-1.5 rounded-lg theme-transition ${
+              isNight ? 'bg-[#eae6db]/10 text-[#eae6db]' : 'bg-[#4a3e2e]/5 text-[#4a3e2e]'
+            }`}>
+              {currentTime} <span className="opacity-70 text-[10px] md:text-xs">PHT</span>
+            </div>
+          )}
         </div>
         <p className={`mt-1.5 text-[11px] md:text-xs leading-relaxed font-mono hidden sm:block theme-transition ${
           isNight ? 'text-[#a1a1aa]' : 'text-[#7d6c56]'

@@ -65,7 +65,7 @@ const NoteForm: React.FC<NoteFormProps> = ({ onClose }) => {
   return (
     <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-[#4a3e2e]/40 backdrop-blur-md animate-fade-in font-sans overflow-y-auto">
       <div 
-        className="relative w-full max-w-md my-auto overflow-hidden rounded-2xl border border-[#c9a96e]/20 bg-[#fbf9f4]/95 text-[#4a3e2e] shadow-2xl transition-all duration-300 max-h-[90vh] flex flex-col"
+        className="relative w-full max-w-md my-auto overflow-hidden rounded-2xl border border-white/60 bg-white/10 backdrop-blur-xl text-[#4a3e2e] shadow-2xl transition-all duration-300 max-h-[90vh] flex flex-col"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Glow behind modal header */}
